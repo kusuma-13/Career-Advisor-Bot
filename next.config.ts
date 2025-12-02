@@ -1,9 +1,11 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 
-const LOADER = path.resolve(__dirname, 'src/visual-edits/component-tagger-loader.js');
-
 const nextConfig: NextConfig = {
+  reactStrictMode: true,
+  swcMinify: true,
+  
+  // Image optimization configuration
   images: {
     remotePatterns: [
       {
@@ -16,20 +18,37 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  outputFileTracingRoot: path.resolve(__dirname, '../../'),
+  
+  // TypeScript configuration
   typescript: {
     ignoreBuildErrors: true,
   },
+  
+  // ESLint configuration
   eslint: {
     ignoreDuringBuilds: true,
   },
-  turbopack: {
-    rules: {
-      "*.{jsx,tsx}": {
-        loaders: [LOADER]
-      }
+  
+  // Webpack configuration
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        os: false,
+      };
     }
-  }
+    return config;
+  },
+  
+  // Disable Turbopack for production builds
+  experimental: {
+    // @ts-ignore - turbotrace is not in the types yet
+    turbotrace: {
+      contextDirectory: __dirname,
+    },
+  },
 };
 
 export default nextConfig;
