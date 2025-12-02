@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { auth } from "@/lib/auth";
 
 // Public paths that don't require authentication
 const publicPaths = [
   '/',
   '/login', 
-  '/register', 
+  '/register',
+  '/auth',
   '/api/auth',
   '/courses',
   '/api/courses',
@@ -20,7 +20,14 @@ const protectedPaths = [
   '/dashboard'
 ];
 
-export async function middleware(request: NextRequest) {
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+  ],
+  runtime: 'edge',
+};
+
+export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   // Skip middleware for public paths, API routes, and static files
@@ -28,7 +35,7 @@ export async function middleware(request: NextRequest) {
     publicPaths.some(path => path === pathname || pathname.startsWith(`${path}/`)) ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon.ico') ||
-    pathname.startsWith('/api/') && !pathname.startsWith('/api/auth/') ||
+    (pathname.startsWith('/api/') && !pathname.startsWith('/api/auth/')) ||
     pathname.startsWith('/jobs')
   ) {
     return NextResponse.next();
@@ -41,32 +48,43 @@ export async function middleware(request: NextRequest) {
   
   if (isProtectedPath) {
     try {
-      // Get the session
-      const session = await auth.api.getSession({ 
-        headers: Object.fromEntries(request.headers.entries()) 
-      });
+      // Get the session token from cookies
+      const sessionToken = request.cookies.get('authjs.session-token')?.value ||
+                         request.cookies.get('__Secure-authjs.session-token')?.value;
       
-      // If no session, redirect to login with the current path as callback
-      if (!session) {
+      // If no session token, redirect to login
+      if (!sessionToken) {
         const loginUrl = new URL('/login', request.url);
         loginUrl.searchParams.set('callbackUrl', pathname);
         return NextResponse.redirect(loginUrl);
       }
       
-      // If session exists, continue to the requested page
+      // Verify session by making a request to your auth API
+      const response = await fetch(new URL('/api/auth/session', request.url).toString(), {
+        headers: {
+          cookie: request.headers.get('cookie') || '',
+        },
+      });
+      
+      const session = await response.json();
+      
+      // If no valid session, redirect to login
+      if (!session?.user) {
+        const loginUrl = new URL('/login', request.url);
+        loginUrl.searchParams.set('callbackUrl', pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+      
+      // If session is valid, continue to the requested page
       return NextResponse.next();
     } catch (error) {
       console.error('Error in middleware:', error);
-      // In case of error, allow access but log the error
-      return NextResponse.next();
+      // In case of error, redirect to login to be safe
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('error', 'SessionError');
+      return NextResponse.redirect(loginUrl);
     }
   }
   
   return NextResponse.next();
-}
-
-export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
 };
