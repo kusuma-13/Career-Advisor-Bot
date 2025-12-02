@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
-import path from "node:path";
+import path from "path";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  output: 'standalone',
   
   // Image optimization configuration
   images: {
@@ -42,8 +43,9 @@ const nextConfig: NextConfig = {
     return config;
   },
   
-  // Disable Turbopack for production builds
+  // Experimental features
   experimental: {
+    serverComponentsExternalPackages: ['@turbopack/*'],
     // @ts-ignore - turbotrace is not in the types yet
     turbotrace: {
       contextDirectory: __dirname,

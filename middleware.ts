@@ -23,8 +23,7 @@ const protectedPaths = [
 export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
-  runtime: 'edge',
+  ]
 };
 
 export default async function middleware(request: NextRequest) {
